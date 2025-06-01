@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
-
+#include <arpa/inet.h>
+#include <cstdio>
 
 #pragma pack(push,1)
 struct IpH{
@@ -15,5 +16,8 @@ struct IpH{
     uint16_t checksum;
     uint32_t saddr;
     uint32_t daddr;
+
+    uint16_t calc_checksum();
+    static uint32_t ip_parse(char* ip);
 };
 #pragma pack(pop)

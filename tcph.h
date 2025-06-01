@@ -5,8 +5,8 @@
 struct TcpH{
     uint16_t sport;
     uint16_t dport;
-    uint32_t seq;
-    uint32_t ack;
+    uint32_t seq_num;
+    uint32_t ack_num;
     uint8_t offset:4;
     uint8_t resv:4;
 
