@@ -4,9 +4,10 @@
 uint32_t client_ip;// in network byte order my ip
 uint32_t server_ip;
 uint16_t n_port;
+char* intf;
 
 
-void loop_cb(u_char* user,const struct pcap_pkthdr *hdr,const u_char* raw_packet){
+void loop_cb(u_char* pcap_handle,const struct pcap_pkthdr *hdr,const u_char* raw_packet){
     struct Packet packet;
 
     uint16_t id_count = rand();
@@ -28,9 +29,10 @@ void loop_cb(u_char* user,const struct pcap_pkthdr *hdr,const u_char* raw_packet
     packet.tcp.sport = n_port;
     packet.tcp.dport = n_port;
 
+    pcap_t* pcap = (pcap_t*)pcap_handle;
+    pcap_sendpacket(pcap,(const uchar*)&packet,packet_size);
+
 }
-
-
 
 int main(int argc, char *argv[])
 {
@@ -50,28 +52,21 @@ int main(int argc, char *argv[])
     }
     freeifaddrs(ifa);
 
+    //global var set
+    intf = argv[1];
     server_ip = IpH::ip_parse(argv[2]);
     n_port = htons(atoi(argv[3]));
 
-    addr.sin_family = AF_INET;
-    addr.sin_port = n_port;
-    addr.sin_addr.s_addr = server_ip;
-
-    connect(sock,(struct sockaddr*)&addr,sizeof(addr));
-
     char err[PCAP_BUF_SIZE];
-    pcap_t* pcap = pcap_open_live(argv[1],BUFSIZ,1,1000,err);
-    pcap_loop(pcap,-1,loop_cb,NULL);
+    pcap_t* pcap = pcap_open_live(intf,BUFSIZ,1,1000,err);
+    pcap_loop(pcap,-1,loop_cb,(u_char*)pcap);
+
+
     pcap_close(pcap);
 
-    /*std::cout<<client_ip<<std::endl;
-    printf("0x%08x\n",client_ip);
-    printf("IP: %d.%d.%d.%d\n",
-           (client_ip >> 24) & 0xFF,
-           (client_ip >> 16) & 0xFF,
-           (client_ip >> 8) & 0xFF,
-           client_ip & 0xFF);
-    printf("%08x\n",ntohl(client_ip));
-    */
-    close(sock);
+
+
 }
+
+
+
