@@ -1,6 +1,25 @@
 #pragma once
 #include <stdint.h>
 
+
+struct Tcp_Checksum{
+    uint32_t saddr;
+    uint32_t daddr;
+    uint8_t resv;
+    uint8_t protocol;
+    uint16_t len;
+};
+
+
+enum TcpFlag {
+    TCP_SYN = 0x02,
+    TCP_ACK = 0x10,
+    TCP_SYNACK = 0x12,
+    TCP_PSH = 0x08,
+    TCP_FIN = 0x01
+
+};
+
 #pragma pack(push,1)
 struct TcpH{
     uint16_t sport;
@@ -10,15 +29,8 @@ struct TcpH{
     uint8_t offset:4;
     uint8_t resv:4;
 
-    uint8_t cwr:1;
-    uint8_t ece:1;
-    uint8_t urg:1;
-    uint8_t ack:1;
-    uint8_t psh:1;
-    uint8_t rst:1;
-    uint8_t syn:1;
-    uint8_t fin:1;
-
+    uint8_t flag;
+    uint16_t ws;
     uint16_t checksum;
     uint16_t urgent;
 
