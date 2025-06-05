@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include <cstring>
 
+struct Packet;
 
 struct Tcp_Checksum{
     uint32_t saddr;
@@ -33,6 +35,8 @@ struct TcpH{
     uint16_t ws;
     uint16_t checksum;
     uint16_t urgent;
+
+    uint16_t calc_checksum(Packet* packet,uint8_t* data,int data_len);
 
 };
 #pragma pack(pop)

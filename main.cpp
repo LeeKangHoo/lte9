@@ -38,46 +38,27 @@ bool is_connected = false;
 
 }*/
 
-void cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* data, void* u_data){
+int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* data, void* u_data){
     struct Packet packet;
     struct TcpOption tcp_op;
     unsigned char* o_packet;
-    struct nfqnl_msg_packet_hdr p_h = nfq_get_msg_packet_hdr(data);
+    unsigned char n_packet[65535];
+
+    struct nfqnl_msg_packet_hdr* p_h = nfq_get_msg_packet_hdr(data);
     uint32_t id = ntohl(p_h->packet_id);
 
     int o_len = nfq_get_payload(data,&o_packet);
     int len = sizeof(Packet) + o_len;
-
-
-    packet.ip.version = 0x04;
-    packet.ip.ihl = 0x05;
-    packet.ip.tos = 0;
-    packet.ip.len = htons(len);
-    packet.ip.id = htons(rand()&0xFFFF);
-    packet.ip.offset = htons(0x4000);
-    packet.ip.ttl = 0x40;
-    packet.ip.protocol = 0x06;
-    packet.ip.checksum = 0x0000;
-    packet.ip.saddr = client_ip;
-    packet.ip.daddr = server_ip;
-    packet.ip.checksum = packet.ip.calc_checksum();
-
-    packet.tcp.sport = n_port;
-    packet.tcp.dport = n_port;
-    packet.tcp.seq_num = seq;
-    packet.tcp.ack_num = ack;
+    
 
 
 
     if (is_connected){
-
-    }
-    else{
-        packet.ip.version = 0x04;
+        /*packet.ip.version = 0x04;
         packet.ip.ihl = 0x05;
         packet.ip.tos = 0;
         packet.ip.len = htons(len);
-        packet.ip.id = id;
+        packet.ip.id = htons(rand()&0xFFFF);
         packet.ip.offset = htons(0x4000);
         packet.ip.ttl = 0x40;
         packet.ip.protocol = 0x06;
@@ -88,24 +69,50 @@ void cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* d
 
         packet.tcp.sport = n_port;
         packet.tcp.dport = n_port;
+        packet.tcp.seq_num = ack;
+        packet.tcp.ack_num = seq;
+        packet.tcp.checksum = 0;
+        packet.tcp.checksum = packet.tcp.calc_checksum(&packet,data,o_len-sizeof(Packet));
+    */  return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+o_len,n_packet);
+    }
+    else{
+        packet.ip.version = 0x04;
+        packet.ip.ihl = 0x05;
+        packet.ip.tos = 0;
+        packet.ip.len = htons(len+sizeof(TcpOption));
+        packet.ip.id = id;
+        packet.ip.offset = htons(0x4000);
+        packet.ip.ttl = 0x40;
+        packet.ip.protocol = 0x06;
+        packet.ip.checksum = 0x0000;
+        packet.ip.saddr = client_ip;
+        packet.ip.daddr = server_ip;
+        packet.ip.checksum = packet.ip.calc_checksum();
+
+        packet.tcp.sport = htons(n_port);
+        packet.tcp.dport = htons(n_port);
         packet.tcp.seq_num = seq;
         packet.tcp.ack_num = ack;
         packet.tcp.offset = (sizeof(TcpH)+sizeof(TcpOption)) / 4;
         packet.tcp.resv = 0;
-
         packet.tcp.flag = TCP_SYN;
+        packet.tcp.ws = htons(0xfaf0);
+        packet.tcp.checksum = 0;
+        packet.tcp.urgent = 0;
+        packet.tcp.checksum = packet.tcp.calc_checksum(&packet,o_packet,o_len-sizeof(Packet));
 
+        is_connected = true;
+
+        memcpy(n_packet,&packet,sizeof(Packet));
+        memcpy(n_packet+sizeof(Packet),&tcp_op,sizeof(TcpOption));
+        memcpy(n_packet+sizeof(Packet)+sizeof(TcpOption),o_packet,o_len);
+
+
+        return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+sizeof(TcpOption)+o_len,n_packet);
     }
 
 
 
-    unsigned char n_packet[65535];
-    memcpy(n_packet,&packet,sizeof(Packet));
-    memcpy(n_packet+sizeof(Packet),o_packet,sizeof(o_len));
-
-
-
-    return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,0,NULL);
 }
 
 int main(int argc, char *argv[])
@@ -116,8 +123,8 @@ int main(int argc, char *argv[])
     nfq_bind_pf(nfq_h,AF_INET);
 
 
-    struct sockaddr_in addr;
-    int sock = socket(AF_INET,SOCK_STREAM,0);
+    //struct sockaddr_in addr;
+    //int sock = socket(AF_INET,SOCK_STREAM,0);
 
     struct ifaddrs* ifa;
     getifaddrs(&ifa);
@@ -137,6 +144,11 @@ int main(int argc, char *argv[])
     n_port = 4000; //htons(atoi(argv[3]));
 
     struct nfq_q_handle* nfq_q_h = nfq_create_queue(nfq_h,0,&cb,NULL);
+    if(!nfq_q_h){
+        perror("nfq_create_queue error");
+        nfq_close(nfq_h);
+        return -1;
+    }
 
     nfq_set_mode(nfq_q_h,NFQNL_COPY_PACKET,0xffff);
 
@@ -146,7 +158,8 @@ int main(int argc, char *argv[])
     while(1){
         int rv = recv(fd,buf,sizeof(buf),0);
         if (rv>=0) {
-            nfq_handle_packet(nfq_h,buf,rv);
+            int ret = nfq_handle_packet(nfq_h,buf,rv);
+            printf("%d",ret);
         }
     }
 

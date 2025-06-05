@@ -5,8 +5,8 @@
 
 #pragma pack(push,1)
 struct IpH{
-    uint8_t version:4;
     uint8_t ihl:4;
+    uint8_t version:4;
     uint8_t tos;
     uint16_t len;
     uint16_t id;

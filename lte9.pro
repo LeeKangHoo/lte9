@@ -24,4 +24,5 @@ HEADERS += \
     iph.h \
     mac.h \
     main.h \
+    packet.h \
     tcph.h
