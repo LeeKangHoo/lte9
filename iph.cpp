@@ -3,11 +3,15 @@
 uint16_t IpH::calc_checksum(){
     int sum = 0;
     uint16_t* addr = (uint16_t*)this;
-    int len = sizeof(IpH);
+    int len = this->ihl*4;
 
     while (len>1){
         sum += *addr++;
         len -= 2;
+    }
+
+    if(len == 1){
+        sum += *(uint8_t*)addr;
     }
 
     while (sum>>16){

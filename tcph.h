@@ -3,6 +3,7 @@
 #include <cstring>
 
 struct Packet;
+struct TcpOption;
 
 struct Tcp_Checksum{
     uint32_t saddr;
@@ -10,7 +11,7 @@ struct Tcp_Checksum{
     uint8_t resv;
     uint8_t protocol;
     uint16_t len;
-};
+}__attribute__((packed));
 
 
 enum TcpFlag {
@@ -28,15 +29,15 @@ struct TcpH{
     uint16_t dport;
     uint32_t seq_num;
     uint32_t ack_num;
-    uint8_t offset:4;
     uint8_t resv:4;
+    uint8_t offset:4;
 
     uint8_t flag;
     uint16_t ws;
     uint16_t checksum;
     uint16_t urgent;
 
-    uint16_t calc_checksum(Packet* packet,uint8_t* data,int data_len);
+    uint16_t calc_checksum(Packet* packet,TcpOption* tcp_op,uint8_t* data,int data_len,bool is_connected);
 
-};
+}__attribute__((packed));
 #pragma pack(pop)

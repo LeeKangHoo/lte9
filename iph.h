@@ -19,5 +19,5 @@ struct IpH{
 
     uint16_t calc_checksum();
     static uint32_t ip_parse(char* ip);
-};
+}__attribute__((packed));
 #pragma pack(pop)

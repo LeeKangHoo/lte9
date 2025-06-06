@@ -54,32 +54,10 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
 
 
     if (is_connected){
-        /*packet.ip.version = 0x04;
-        packet.ip.ihl = 0x05;
-        packet.ip.tos = 0;
-        packet.ip.len = htons(len);
-        packet.ip.id = htons(rand()&0xFFFF);
-        packet.ip.offset = htons(0x4000);
-        packet.ip.ttl = 0x40;
-        packet.ip.protocol = 0x06;
-        packet.ip.checksum = 0x0000;
-        packet.ip.saddr = client_ip;
-        packet.ip.daddr = server_ip;
-        packet.ip.checksum = packet.ip.calc_checksum();
-
-        packet.tcp.sport = n_port;
-        packet.tcp.dport = n_port;
-        packet.tcp.seq_num = ack;
-        packet.tcp.ack_num = seq;
-        packet.tcp.checksum = 0;
-        packet.tcp.checksum = packet.tcp.calc_checksum(&packet,data,o_len-sizeof(Packet));
-    */  return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+o_len,n_packet);
-    }
-    else{
         packet.ip.version = 0x04;
         packet.ip.ihl = 0x05;
         packet.ip.tos = 0;
-        packet.ip.len = htons(len+sizeof(TcpOption));
+        packet.ip.len = htons(len);
         packet.ip.id = id;
         packet.ip.offset = htons(0x4000);
         packet.ip.ttl = 0x40;
@@ -88,6 +66,42 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
         packet.ip.saddr = client_ip;
         packet.ip.daddr = server_ip;
         packet.ip.checksum = packet.ip.calc_checksum();
+
+        int tmp_offset = (sizeof(TcpH)+sizeof(o_len)) % 4;
+        if(tmp_offset != 0){
+            tmp_offset += (sizeof(TcpH)+sizeof(o_len));
+        }
+        else{
+            packet.tcp.offset = (sizeof(TcpH)+sizeof(o_len)) / 4;
+        }
+
+        packet.tcp.sport = n_port;
+        packet.tcp.dport = n_port;
+        packet.tcp.seq_num = ack;
+        packet.tcp.ack_num = seq;
+        packet.tcp.resv = 0;
+        packet.tcp.flag = TCP_PSH;
+        packet.tcp.ws = htons(50000);
+        packet.tcp.checksum = 0;
+        packet.tcp.urgent = 0;
+        packet.tcp.checksum = packet.tcp.calc_checksum(&packet,nullptr,o_packet,o_len-sizeof(Packet),is_connected);
+
+        id++;
+        return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+o_len,n_packet);
+    }
+    else{
+        packet.ip.version = 0x04;
+        packet.ip.ihl = 0x05;
+        packet.ip.tos = 0;
+        packet.ip.len = htons(sizeof(Packet)+sizeof(TcpOption));
+        packet.ip.id = id;
+        packet.ip.offset = htons(0x4000);
+        packet.ip.ttl = 0x40;
+        packet.ip.protocol = 0x06;
+        packet.ip.checksum = 0x0000;
+        packet.ip.saddr = client_ip;
+        packet.ip.daddr = server_ip;
+        packet.ip.checksum = htons(packet.ip.calc_checksum());
 
         packet.tcp.sport = htons(n_port);
         packet.tcp.dport = htons(n_port);
@@ -99,16 +113,34 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
         packet.tcp.ws = htons(0xfaf0);
         packet.tcp.checksum = 0;
         packet.tcp.urgent = 0;
-        packet.tcp.checksum = packet.tcp.calc_checksum(&packet,o_packet,o_len-sizeof(Packet));
 
-        is_connected = true;
+        tcp_op.kind_mss = 2;
+        tcp_op.length_mss = 4;
+        tcp_op.value_mss = htons(1460);
+        tcp_op.kind_sack = 4;
+        tcp_op.length_sack = 2;
+
+        tcp_op.kind_ts = 8;
+        tcp_op.length_ts = 10;
+        tcp_op.value_ts = htonl(1000000);
+        tcp_op.echo_ts = 0;
+
+        tcp_op.nop1 = 1;
+        //tcp_op.nop2 = 0x0101;
+
+        tcp_op.kind_ws = 3;
+        tcp_op.length_ws = 3;
+        tcp_op.count_ws = 7;
+
+        packet.tcp.checksum = packet.tcp.calc_checksum(&packet,&tcp_op,o_packet,o_len-sizeof(Packet),is_connected);
+
 
         memcpy(n_packet,&packet,sizeof(Packet));
         memcpy(n_packet+sizeof(Packet),&tcp_op,sizeof(TcpOption));
-        memcpy(n_packet+sizeof(Packet)+sizeof(TcpOption),o_packet,o_len);
+        //memcpy(n_packet+sizeof(Packet)+sizeof(TcpOption),o_packet,o_len);
 
-
-        return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+sizeof(TcpOption)+o_len,n_packet);
+        is_connected = true;
+        return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+sizeof(TcpOption),n_packet);
     }
 
 
