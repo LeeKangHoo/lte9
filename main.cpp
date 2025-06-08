@@ -49,6 +49,7 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
 
     int o_len = nfq_get_payload(data,&o_packet);
     int len = sizeof(Packet) + o_len;
+    int tmp_offset;
     
 
 
@@ -67,9 +68,10 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
         packet.ip.daddr = server_ip;
         packet.ip.checksum = packet.ip.calc_checksum();
 
-        int tmp_offset = (sizeof(TcpH)+sizeof(o_len)) % 4;
+        tmp_offset = (sizeof(TcpH)+sizeof(o_len)) % 4;
         if(tmp_offset != 0){
             tmp_offset += (sizeof(TcpH)+sizeof(o_len));
+            packet.tcp.offset = tmp_offset;
         }
         else{
             packet.tcp.offset = (sizeof(TcpH)+sizeof(o_len)) / 4;
@@ -107,7 +109,17 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
         packet.tcp.dport = htons(n_port);
         packet.tcp.seq_num = seq;
         packet.tcp.ack_num = ack;
-        packet.tcp.offset = (sizeof(TcpH)+sizeof(TcpOption)) / 4;
+        //packet.tcp.offset = (sizeof(TcpH)+sizeof(TcpOption)) / 4;
+
+        tmp_offset = (sizeof(TcpH)+sizeof(TcpOption)) % 4;
+        if(tmp_offset != 0){
+            tmp_offset += (sizeof(TcpH)+sizeof(TcpOption));
+            packet.tcp.offset = tmp_offset / 4;
+        }
+        else{
+            packet.tcp.offset = (sizeof(TcpH)+sizeof(TcpOption)) / 4;
+        }
+
         packet.tcp.resv = 0;
         packet.tcp.flag = TCP_SYN;
         packet.tcp.ws = htons(0xfaf0);
@@ -187,6 +199,17 @@ int main(int argc, char *argv[])
     int fd = nfq_fd(nfq_h);
     char buf[4096];
 
+    while(!is_connected){
+        int rv = recv(fd,buf,sizeof(buf),0);
+        if (rv>=0) {
+            struct Packet* twhs;
+            struct TcpOption tcp_op;
+
+
+
+        }
+    }
+
     while(1){
         int rv = recv(fd,buf,sizeof(buf),0);
         if (rv>=0) {
@@ -194,6 +217,8 @@ int main(int argc, char *argv[])
             printf("%d",ret);
         }
     }
+
+
 
 
 
