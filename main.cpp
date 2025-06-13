@@ -45,7 +45,7 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
     unsigned char n_packet[65535];
 
     struct nfqnl_msg_packet_hdr* p_h = nfq_get_msg_packet_hdr(data);
-    uint32_t id = ntohl(p_h->packet_id);
+    uint32_t p_id = ntohl(p_h->packet_id);
 
     int o_len = nfq_get_payload(data,&o_packet);
     int len = sizeof(Packet) + o_len;
@@ -89,7 +89,7 @@ int cb(struct nfq_q_handle* nfq_q_h, struct nfgenmsg* nfmsg, struct nfq_data* da
         packet.tcp.checksum = packet.tcp.calc_checksum(&packet,nullptr,o_packet,o_len-sizeof(Packet),is_connected);
 
         id++;
-        return nfq_set_verdict(nfq_q_h,id,NF_ACCEPT,sizeof(Packet)+o_len,n_packet);
+        return nfq_set_verdict(nfq_q_h,p_id,NF_ACCEPT,sizeof(Packet)+o_len,n_packet);
     }
     else{
         packet.ip.version = 0x04;
